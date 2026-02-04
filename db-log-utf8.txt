@@ -1,0 +1,73 @@
+﻿Testing connection to: mysql://root:@127.0.0.1:3306/threaddb
+node : Γ¥î Connection 
+failed:
+At line:1 char:1
++ node test-db.js > 
+db-log.txt 2>&1
++ ~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
+    + CategoryInfo    
+          : NotSpeci  
+  fied: (Γ¥î Connec   
+ tion failed::Stri    
+ng) [], RemoteExc    
+eption
+    + FullyQualifiedE 
+   rrorId : NativeCo  
+  mmandError
+ 
+Error: Server 
+requests 
+authentication using 
+unknown plugin 
+auth_gssapi_client. 
+See TODO: add plugins 
+doco here on how to 
+configure or author 
+authentication 
+plugins.
+    at Object.createCo
+nnectionPromise [as 
+createConnection] (C:\
+Users\swame\workspaceC
+ode\thread-genie\node_
+modules\mysql2\promise
+.js:19:31)
+    at testConnection 
+(C:\Users\swame\worksp
+aceCode\thread-genie\t
+est-db.js:7:40)
+    at 
+Object.<anonymous> (C:
+\Users\swame\workspace
+Code\thread-genie\test
+-db.js:18:1)
+    at 
+Module._compile (node:
+internal/modules/cjs/l
+oader:1761:14)
+    at Object..js (nod
+e:internal/modules/cjs
+/loader:1893:10)
+    at Module.load (no
+de:internal/modules/cj
+s/loader:1481:32)
+    at Module._load (n
+ode:internal/modules/c
+js/loader:1300:12)
+    at TracingChannel.
+traceSync (node:diagno
+stics_channel:328:14)
+    at wrapModuleLoad 
+(node:internal/modules
+/cjs/loader:245:24)
+    at Module.executeU
+serEntryPoint [as 
+runMain] (node:interna
+l/modules/run_main:154
+:5) {
+  code: 'AUTH_SWITCH_P
+LUGIN_ERROR',
+  errno: undefined,
+  sqlState: undefined
+}
