@@ -1,17 +1,4 @@
 services:
-  db:
-    image: mysql:8.0
-    restart: always
-    environment:
-      MYSQL_DATABASE: threaddb
-      MYSQL_ROOT_PASSWORD: PasswordBaruAnda
-      MYSQL_USER: thread_user
-      MYSQL_PASSWORD: PasswordBaruAnda
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-
   app:
     build:
       context: .
@@ -28,8 +15,9 @@ services:
       - TWITTER_CLIENT_SECRET=${TWITTER_CLIENT_SECRET}
       - FACEBOOK_CLIENT_ID=${FACEBOOK_CLIENT_ID}
       - FACEBOOK_CLIENT_SECRET=${FACEBOOK_CLIENT_SECRET}
-    depends_on:
-      - db
+    networks:
+      - shared_apps
 
-volumes:
-  mysql_data:
+networks:
+  shared_apps:
+    external: true
