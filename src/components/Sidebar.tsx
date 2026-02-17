@@ -10,7 +10,8 @@ import {
     BarChart3,
     Settings,
     Shield,
-    LogOut
+    LogOut,
+    ScrollText
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -34,6 +35,7 @@ const Sidebar = () => {
     // Only show admin link if user is ADMIN
     if (userRole === 'ADMIN') {
         navItems.push({ icon: Shield, label: 'Admin', href: '/admin/users' });
+        navItems.push({ icon: ScrollText, label: 'System Logs', href: '/admin/logs' });
     }
 
     return (

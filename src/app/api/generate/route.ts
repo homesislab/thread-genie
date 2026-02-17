@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { geminiModel } from '@/lib/gemini';
+import { getGeminiModel } from '@/lib/gemini';
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +30,12 @@ Example Output:
   "thread": ["Hook tweet here", "Tweet 2 context", "Key takeaway", "Call to action"]
 }`;
 
-        const result = await geminiModel.generateContent({
+        const session = await getServerSession(authOptions);
+        const userId = session?.user?.id; // Assuming session has user.id
+
+        const model = await getGeminiModel(userId);
+
+        const result = await model.generateContent({
             contents: [
                 {
                     role: "user",

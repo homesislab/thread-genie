@@ -8,22 +8,22 @@ datasource db {
 }
 
 model Account {
-  id                 String  @id @default(cuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String?  @db.Text
-  access_token       String?  @db.Text
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?  @db.Text
-  session_state      String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([userId], map: "Account_userId_fkey")
 }
 
 model Session {
@@ -32,6 +32,8 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "Session_userId_fkey")
 }
 
 model User {
@@ -41,10 +43,12 @@ model User {
   emailVerified DateTime?
   image         String?
   password      String?
-  role          String    @default("USER") // ADMIN, USER
+  role          String    @default("USER")
   accounts      Account[]
   sessions      Session[]
   threads       Thread[]
+  systemLogs    SystemLog[]
+  aiSettings    AISettings?
 }
 
 model VerificationToken {
@@ -56,13 +60,36 @@ model VerificationToken {
 }
 
 model Thread {
-  id          String   @id @default(cuid())
-  content     Json     // Array of strings (tweets)
-  status      String   @default("DRAFT") // DRAFT, SCHEDULED, POSTED, PARTIAL
-  platforms   Json?    // Array of strings or object { twitter: "POSTED", facebook: "DRAFT" }
+  id          String    @id @default(cuid())
+  content     String    @db.LongText
+  status      String    @default("DRAFT")
+  platforms   String?   @db.LongText
   scheduledAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "Thread_userId_fkey")
+}
+
+model SystemLog {
+  id        String   @id @default(cuid())
+  level     String
+  message   String   @db.Text
+  details   Json?
+  createdAt DateTime @default(now())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId], map: "SystemLog_userId_fkey")
+}
+
+model AISettings {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  provider  String   // GEMINI, OPENAI
+  apiKey    String?  @db.Text
+  model     String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

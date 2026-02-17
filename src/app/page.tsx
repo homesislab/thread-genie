@@ -64,9 +64,10 @@ export default function Home() {
       if (response.data.thread) {
         setThread(response.data.thread);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to generate thread:", error);
-      alert("Failed to generate thread.");
+      const errorMsg = error.response?.data?.error || "Failed to generate thread.";
+      alert(errorMsg);
     } finally {
       setIsLoading(false);
     }
