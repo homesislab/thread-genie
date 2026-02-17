@@ -11,15 +11,17 @@ try {
 
     console.log("📡 Connecting to database...");
 
-    // First, generate the Prisma client
-    console.log("🛠️  Generating Prisma client...");
-    execSync('npx prisma generate', { stdio: 'inherit' });
+    // Then, migrate the database
+    // Using migrate dev to track schema changes
+    console.log("uD83DuDCE4 Running database migrations...");
 
-    // Then, push the schema to the database
-    // Using db push for simplicity as it's often preferred in dev for quick iterations
-    // if they want migrations history, they can use 'prisma migrate dev'
-    console.log("📤 Pushing schema to database...");
-    execSync('npx prisma db push', { stdio: 'inherit' });
+    // Forward arguments to prisma migrate dev
+    const args = process.argv.slice(2).join(' ');
+    const cmd = `npx prisma migrate dev ${args}`;
+    console.log(`Running: ${cmd}`);
+
+    // Execute command with inherited stdio to allow interaction
+    execSync(cmd, { stdio: 'inherit' });
 
     console.log("\n✅ Database migration completed successfully!");
     console.log("💡 You can now run 'npm run dev' to start the application.");
