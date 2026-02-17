@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from '@/lib/prisma';
+import { Logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +14,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { thread, scheduledAt, accountIds } = await req.json();
+        const { thread, scheduledAt, accountIds, imageUrl } = await req.json();
 
         if (!thread || !Array.isArray(thread) || thread.length === 0) {
             return NextResponse.json({ error: "Thread content is required" }, { status: 400 });
@@ -29,13 +30,20 @@ export async function POST(req: Request) {
 
         const newThread = await prisma.thread.create({
             data: {
-                content: thread,
+                content: JSON.stringify(thread),
+                imageUrl: imageUrl || null,
                 scheduledAt: new Date(scheduledAt),
                 status: "SCHEDULED",
                 userId: session.user.id,
-                platforms: accountIds, // Store selected account IDs
+                platforms: JSON.stringify(accountIds), // Store selected account IDs
             },
         });
+
+        await Logger.info(
+            `Thread scheduled for ${new Date(scheduledAt).toLocaleString()}`,
+            { threadId: newThread.id, scheduledAt },
+            session.user.id
+        );
 
         return NextResponse.json({ success: true, thread: newThread });
     } catch (error: any) {

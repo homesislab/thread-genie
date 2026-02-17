@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getGeminiModel } from '@/lib/gemini';
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { Logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +31,7 @@ Example Output:
   "thread": ["Hook tweet here", "Tweet 2 context", "Key takeaway", "Call to action"]
 }`;
 
-        const session = await getServerSession(authOptions);
+        const session: any = await getServerSession(authOptions);
         const userId = session?.user?.id; // Assuming session has user.id
 
         const model = await getGeminiModel(userId);
@@ -47,6 +48,35 @@ Example Output:
         const response = result.response;
         const text = response.text();
         const parsed = JSON.parse(text || '{"thread": []}');
+
+        if (userId && parsed.thread?.length > 0) {
+            // Auto-save as DRAFT
+            try {
+                const { prisma } = require('@/lib/prisma');
+                // Map strings to objects if they are strings, otherwise preserve
+                const threadContent = (parsed.thread || []).map((t: any) => {
+                    if (typeof t === 'string') return { text: t, imageUrl: null };
+                    return t;
+                });
+
+                const created = await prisma.thread.create({
+                    data: {
+                        content: JSON.stringify(threadContent),
+                        status: "DRAFT",
+                        userId: userId
+                    }
+                });
+                return NextResponse.json({ thread: threadContent, threadId: created.id });
+            } catch (dbErr) {
+                console.error("Failed to auto-save thread draft:", dbErr);
+            }
+
+            await Logger.info(
+                `Thread generated and saved as draft`,
+                { prompt, tone, length, threadCount: parsed.thread?.length || 0 },
+                userId
+            );
+        }
 
         return NextResponse.json({ thread: parsed.thread || [] });
     } catch (error: any) {

@@ -23,7 +23,37 @@ export default function SettingsPage() {
     const [provider, setProvider] = useState('GEMINI');
     const [apiKey, setApiKey] = useState('');
     const [model, setModel] = useState('');
+    const [imageModel, setImageModel] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
+
+    const TEXT_MODELS = {
+        GEMINI: [
+            { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro (Preview)' },
+            { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash (Preview)' },
+            { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Stable)' },
+            { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Stable)' },
+            { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
+        ],
+        OPENAI: [
+            { id: 'gpt-4o', name: 'GPT-4o' },
+            { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
+            { id: 'o1', name: 'OpenAI o1' },
+            { id: 'o3-mini', name: 'OpenAI o3-mini' },
+            { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' },
+        ]
+    };
+
+    const IMAGE_MODELS = {
+        GEMINI: [
+            { id: 'gemini-3-pro-image-preview', name: 'Nano Banana Pro (Gemini 3)' },
+            { id: 'gemini-2.5-flash-image', name: 'Nano Banana Flash (Legacy)' },
+            { id: 'gemini-2.0-flash-exp-image-generation', name: 'Gemini 2.0 Image (Exp)' },
+        ],
+        OPENAI: [
+            { id: 'dall-e-3', name: 'DALL-E 3 (HD)' },
+            { id: 'dall-e-2', name: 'DALL-E 2 (Standard)' },
+        ]
+    };
 
     useEffect(() => {
         if (status === "unauthenticated") redirect('/login');
@@ -43,6 +73,7 @@ export default function SettingsPage() {
                 setProvider(data.provider || 'GEMINI');
                 setApiKey(data.apiKey || '');
                 setModel(data.model || '');
+                setImageModel(data.imageModel || '');
             }
         } catch (error) {
             console.error('Failed to fetch settings:', error);
@@ -60,7 +91,8 @@ export default function SettingsPage() {
             await axios.post('/api/settings/ai', {
                 provider,
                 apiKey,
-                model
+                model,
+                imageModel
             });
             setSuccessMessage('Settings saved successfully!');
             setTimeout(() => setSuccessMessage(''), 3000);
@@ -97,7 +129,11 @@ export default function SettingsPage() {
                         <div className="grid grid-cols-2 gap-4">
                             <button
                                 type="button"
-                                onClick={() => { setProvider('GEMINI'); setModel('gemini-1.5-flash'); }}
+                                onClick={() => {
+                                    setProvider('GEMINI');
+                                    setModel('gemini-1.5-flash');
+                                    setImageModel('gemini-2.5-flash-image');
+                                }}
                                 className={`p-4 rounded-xl border transition-all text-left ${provider === 'GEMINI'
                                     ? 'bg-violet-500/20 border-violet-500 text-white'
                                     : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
@@ -108,7 +144,11 @@ export default function SettingsPage() {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => { setProvider('OPENAI'); setModel('gpt-4o'); }}
+                                onClick={() => {
+                                    setProvider('OPENAI');
+                                    setModel('gpt-4o');
+                                    setImageModel('dall-e-3');
+                                }}
                                 className={`p-4 rounded-xl border transition-all text-left ${provider === 'OPENAI'
                                     ? 'bg-violet-500/20 border-violet-500 text-white'
                                     : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
@@ -155,15 +195,32 @@ export default function SettingsPage() {
                         </p>
                     </div>
 
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300">Model</label>
-                        <input
-                            type="text"
-                            value={model}
-                            onChange={(e) => setModel(e.target.value)}
-                            className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-xl focus:ring-1 focus:ring-violet-500 outline-none text-sm"
-                            placeholder="e.g. gemini-2.5-flash or gpt-4o"
-                        />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-300">Text Generation Model</label>
+                            <select
+                                value={model}
+                                onChange={(e) => setModel(e.target.value)}
+                                className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-xl focus:ring-1 focus:ring-violet-500 outline-none text-sm appearance-none cursor-pointer"
+                            >
+                                {(TEXT_MODELS as any)[provider].map((m: any) => (
+                                    <option key={m.id} value={m.id} className="bg-slate-900">{m.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-300">Image Generation Model</label>
+                            <select
+                                value={imageModel}
+                                onChange={(e) => setImageModel(e.target.value)}
+                                className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-xl focus:ring-1 focus:ring-violet-500 outline-none text-sm appearance-none cursor-pointer"
+                            >
+                                {(IMAGE_MODELS as any)[provider].map((m: any) => (
+                                    <option key={m.id} value={m.id} className="bg-slate-900">{m.name}</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
 
                     <div className="pt-4 flex items-center gap-4">

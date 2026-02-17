@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { Logger } from '@/lib/logger';
 
 export async function POST(req: Request) {
     console.log("👉 Signup API hit!");
@@ -33,6 +34,9 @@ export async function POST(req: Request) {
                 role: isAdmin ? "ADMIN" : "USER"
             }
         });
+
+        // Log successful signup
+        await Logger.success(`New user signed up: ${email}`, { userId: user.id, name: user.name });
 
         return NextResponse.json({ success: true, user: { id: user.id, name: user.name, email: user.email } });
     } catch (error: any) {

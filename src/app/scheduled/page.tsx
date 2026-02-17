@@ -39,7 +39,9 @@ export default function ScheduledPage() {
     const fetchThreads = async () => {
         try {
             const response = await axios.get('/api/threads');
-            setThreads(response.data.threads);
+            // Filter out DRAFT threads for the scheduled page
+            const filtered = response.data.threads.filter((t: any) => t.status !== 'DRAFT');
+            setThreads(filtered);
         } catch (error) {
             console.error("Failed to fetch threads:", error);
         } finally {
@@ -137,13 +139,27 @@ export default function ScheduledPage() {
                                                 </div>
 
                                                 <p className="text-sm text-slate-300 line-clamp-2 leading-relaxed">
-                                                    {thread.content[0]}
+                                                    {(() => {
+                                                        try {
+                                                            const content = JSON.parse(thread.content as any);
+                                                            const first = content[0];
+                                                            return typeof first === 'string' ? first : (first?.text || "Empty thread");
+                                                        } catch (e) {
+                                                            return Array.isArray(thread.content) ? thread.content[0] : "Empty thread";
+                                                        }
+                                                    })()}
                                                 </p>
 
                                                 <div className="flex items-center gap-4 text-xs text-slate-500">
                                                     <span className="flex items-center gap-1">
                                                         <MessageSquare className="w-3 h-3" />
-                                                        {thread.content.length} Tweets
+                                                        {(() => {
+                                                            try {
+                                                                return JSON.parse(thread.content as any).length;
+                                                            } catch (e) {
+                                                                return Array.isArray(thread.content) ? thread.content.length : 0;
+                                                            }
+                                                        })()} Tweets
                                                     </span>
                                                 </div>
                                             </div>

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { TwitterApi } from 'twitter-api-v2';
+import { getTwitterClient } from '@/lib/twitter';
+import { Logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,7 +26,13 @@ export async function GET(req: Request) {
         const results = [];
 
         for (const thread of threadsToPost) {
-            const accountIds = thread.platforms as string[] || [];
+            let accountIds: string[] = [];
+            try {
+                accountIds = JSON.parse(thread.platforms || '[]');
+            } catch (e) {
+                // Fallback if not JSON
+                accountIds = thread.platforms ? [thread.platforms] : [];
+            }
             const platformStatuses: Record<string, string> = {};
             let hasError = false;
 
@@ -52,8 +59,27 @@ export async function GET(req: Request) {
 
                 try {
                     if (account.provider === 'twitter') {
-                        const client = new TwitterApi(account.access_token!);
-                        await client.v2.tweetThread(thread.content as string[]);
+                        const client = await getTwitterClient(account.id);
+
+                        // Use manual threading for consistency with post route and better control
+                        let lastTweetId = undefined;
+
+                        let threadContent: string[] = [];
+                        try {
+                            threadContent = JSON.parse(thread.content as string);
+                        } catch (e) {
+                            threadContent = [thread.content as string]; // Fallback if not JSON
+                        }
+
+                        for (const tweetText of threadContent) {
+                            const params: any = { text: tweetText };
+                            if (lastTweetId) {
+                                params.reply = { in_reply_to_tweet_id: lastTweetId };
+                            }
+                            const postedTweet = await client.v2.tweet(params);
+                            lastTweetId = postedTweet.data.id;
+                        }
+
                         platformStatuses[accountId] = "POSTED";
                     } else if (account.provider === 'facebook') {
                         // Placeholder for Meta implementation
@@ -62,6 +88,19 @@ export async function GET(req: Request) {
                     }
                 } catch (err: any) {
                     console.error(`Cron post failed for account ${accountId}:`, err);
+
+                    // Log detailed error for cron debugging
+                    await Logger.error(
+                        `Cron: Failed to post thread to ${account.provider}`,
+                        {
+                            error: err.message,
+                            twitterData: err.data,
+                            accountId: account.id,
+                            platform: account.provider
+                        },
+                        account.userId
+                    );
+
                     platformStatuses[accountId] = `ERROR: ${err.message}`;
                     hasError = true;
                 }

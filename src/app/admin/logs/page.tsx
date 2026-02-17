@@ -50,6 +50,17 @@ export default function AdminLogsPage() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [refreshing, setRefreshing] = useState(false);
+    const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set());
+
+    const toggleLog = (id: string) => {
+        const newExpanded = new Set(expandedLogs);
+        if (newExpanded.has(id)) {
+            newExpanded.delete(id);
+        } else {
+            newExpanded.add(id);
+        }
+        setExpandedLogs(newExpanded);
+    };
 
     useEffect(() => {
         if (status === "unauthenticated") redirect('/login');
@@ -130,17 +141,22 @@ export default function AdminLogsPage() {
                     </thead>
                     <tbody className="divide-y divide-white/5">
                         {filteredLogs.map((log) => (
-                            <tr key={log.id} className="hover:bg-white/[0.02] transition-colors group">
-                                <td className="px-6 py-4 whitespace-nowrap">
+                            <tr key={log.id}
+                                className="hover:bg-white/[0.02] transition-colors group cursor-pointer"
+                                onClick={() => toggleLog(log.id)}
+                            >
+                                <td className="px-6 py-4 whitespace-nowrap align-top">
                                     <LogLevelBadge level={log.level} />
                                 </td>
                                 <td className="px-6 py-4">
-                                    <div className="text-sm text-slate-300 font-mono break-all line-clamp-2" title={log.message}>
+                                    <div className={`text-sm text-slate-300 font-mono break-all ${expandedLogs.has(log.id) ? '' : 'line-clamp-2'}`} title={log.message}>
                                         {log.message}
                                     </div>
                                     {log.details && (
-                                        <div className="text-xs text-slate-500 mt-1 font-mono truncate max-w-md">
-                                            {JSON.stringify(log.details)}
+                                        <div className={`text-xs text-slate-500 mt-1 font-mono ${expandedLogs.has(log.id) ? 'bg-black/20 p-3 rounded-lg mt-2 overflow-x-auto whitespace-pre' : 'truncate max-w-md'}`}>
+                                            {expandedLogs.has(log.id)
+                                                ? JSON.stringify(log.details, null, 2)
+                                                : JSON.stringify(log.details)}
                                         </div>
                                     )}
                                 </td>

@@ -11,7 +11,8 @@ import {
     Settings,
     Shield,
     LogOut,
-    ScrollText
+    ScrollText,
+    Image as ImageIcon
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -27,6 +28,8 @@ const Sidebar = () => {
 
     const navItems = [
         { icon: LayoutDashboard, label: 'Dashboard', href: '/' },
+        { icon: ScrollText, label: 'Drafts', href: '/threads' },
+        { icon: ImageIcon, label: 'Gallery', href: '/gallery' },
         { icon: Calendar, label: 'Scheduled', href: '/scheduled' },
         { icon: BarChart3, label: 'Accounts', href: '/accounts' },
         { icon: Settings, label: 'Settings', href: '/settings' },

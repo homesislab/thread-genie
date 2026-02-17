@@ -13,12 +13,17 @@ import {
   Twitter,
   Facebook,
   CheckCircle2,
-  Settings
+  Settings,
+  ImageIcon,
+  Download,
+  X,
+  Grid
 } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { useSession, signIn } from 'next-auth/react';
+import { useSearchParams } from 'next/navigation';
 import ScheduleModal from '@/components/ScheduleModal';
 
 export default function Home() {
@@ -27,21 +32,76 @@ export default function Home() {
   const [tone, setTone] = useState("Professional");
   const [length, setLength] = useState("Medium (5-10 tweets)");
   const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [generateImage, setGenerateImage] = useState(false);
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [isPosting, setIsPosting] = useState(false);
   const [isScheduling, setIsScheduling] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
-  const [thread, setThread] = useState<string[]>([
-    "Unlocking the Future of Content Creation with AI: How Thread Genie streamlines your Twitter presence and boosts engagement. 🧵✨ #AI #SocialMedia",
-    "1/ Thread Genie uses advanced NLP to understand your topic and generate compelling, well-structured threads that capture attention."
+  const [thread, setThread] = useState<any[]>([
+    {
+      text: "Unlocking the Future of Content Creation with AI: How Thread Genie streamlines your Twitter presence and boosts engagement. 🧵✨ #AI #SocialMedia",
+      imageUrl: null
+    },
+    {
+      text: "1/ Thread Genie uses advanced NLP to understand your topic and generate compelling, well-structured threads that capture attention.",
+      imageUrl: null
+    }
   ]);
+  const [galleryImages, setGalleryImages] = useState<any[]>([]);
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [isFetchingGallery, setIsFetchingGallery] = useState(false);
+  const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
+  const [selectionTarget, setSelectionTarget] = useState<number | 'global' | null>(null);
+
+  const fetchGallery = async () => {
+    setIsFetchingGallery(true);
+    try {
+      const res = await axios.get('/api/gallery');
+      setGalleryImages(res.data.images || []);
+    } catch (error) {
+      console.error('Failed to fetch gallery:', error);
+    } finally {
+      setIsFetchingGallery(false);
+    }
+  };
+
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     if (session) {
       fetchAccounts();
+      fetchGallery();
+
+      // Check for thread ID in URL to reuse
+      const reuseId = searchParams.get('id');
+      if (reuseId) {
+        loadThreadForReuse(reuseId);
+      }
     }
-  }, [session]);
+  }, [session, searchParams]);
+
+  const loadThreadForReuse = async (id: string) => {
+    setIsLoading(true);
+    try {
+      const res = await axios.get('/api/threads');
+      const found = res.data.threads.find((t: any) => t.id === id);
+      if (found) {
+        const tweets = JSON.parse(found.content);
+        setThread(tweets);
+        setGeneratedImageUrl(found.imageUrl);
+        setCurrentThreadId(found.id);
+        // Extract prompt if possible, or just set a placeholder
+        setPrompt("Reusing previous thread...");
+      }
+    } catch (error) {
+      console.error('Failed to load thread for reuse:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const fetchAccounts = async () => {
     try {
@@ -59,10 +119,19 @@ export default function Home() {
   const handleGenerate = async () => {
     if (!prompt) return;
     setIsLoading(true);
+    setGeneratedImageUrl(null);
     try {
       const response = await axios.post('/api/generate', { prompt, tone, length });
       if (response.data.thread) {
         setThread(response.data.thread);
+        if (response.data.threadId) {
+          setCurrentThreadId(response.data.threadId);
+        }
+
+        // If generate image is enabled, generate it too
+        if (generateImage) {
+          handleGenerateImage(prompt, response.data.threadId);
+        }
       }
     } catch (error: any) {
       console.error("Failed to generate thread:", error);
@@ -70,6 +139,24 @@ export default function Home() {
       alert(errorMsg);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGenerateImage = async (imagePrompt: string, threadId?: string) => {
+    setIsGeneratingImage(true);
+    try {
+      const response = await axios.post('/api/generate/image', {
+        prompt: imagePrompt,
+        threadId: threadId || currentThreadId
+      });
+      if (response.data.imageUrl) {
+        setGeneratedImageUrl(response.data.imageUrl);
+      }
+    } catch (error: any) {
+      console.error("Failed to generate image:", error);
+      // Don't alert here to not interrupt thread generation, maybe just show a small error in the image area
+    } finally {
+      setIsGeneratingImage(false);
     }
   };
 
@@ -87,7 +174,8 @@ export default function Home() {
     try {
       const response = await axios.post('/api/post', {
         thread,
-        accountIds: selectedAccounts
+        accountIds: selectedAccounts,
+        imageUrl: generatedImageUrl
       });
       if (response.data.success) {
         alert("Thread posted successfully to selected accounts! 🚀");
@@ -118,7 +206,8 @@ export default function Home() {
       const response = await axios.post('/api/schedule', {
         thread,
         scheduledAt,
-        accountIds: selectedAccounts
+        accountIds: selectedAccounts,
+        imageUrl: generatedImageUrl
       });
       if (response.data.success) {
         alert("Thread scheduled successfully! 🗓️");
@@ -159,7 +248,26 @@ export default function Home() {
               className="w-full h-48 bg-transparent border-none focus:ring-0 text-lg text-white placeholder:text-slate-600 resize-none"
             />
             <div className="flex items-center justify-between mt-4">
-              <span className="text-xs text-slate-500">Press Cmd+Enter to generate</span>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setGenerateImage(!generateImage)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-xs font-medium ${generateImage
+                    ? "bg-violet-600/20 border-violet-500/50 text-violet-300"
+                    : "bg-white/5 border-white/10 text-slate-500 hover:text-slate-400"
+                    }`}
+                >
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  Generate Image
+                </button>
+                <button
+                  onClick={() => setIsGalleryOpen(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-white/5 border-white/10 text-slate-500 hover:text-slate-400 transition-all text-xs font-medium"
+                >
+                  <Grid className="w-3.5 h-3.5" />
+                  Gallery
+                </button>
+                <span className="text-xs text-slate-600">Press Cmd+Enter to generate</span>
+              </div>
               <button
                 onClick={handleGenerate}
                 disabled={isLoading || !prompt}
@@ -303,6 +411,17 @@ export default function Home() {
             )}
 
             <AnimatePresence mode="popLayout">
+
+              {isGeneratingImage && (
+                <div className="aspect-square rounded-3xl glass-card border border-white/10 flex flex-col items-center justify-center space-y-4 text-slate-400">
+                  <div className="relative">
+                    <div className="w-16 h-16 rounded-full border-t-2 border-violet-500 animate-spin" />
+                    <ImageIcon className="w-6 h-6 absolute inset-0 m-auto text-violet-500/50" />
+                  </div>
+                  <p className="text-sm font-medium animate-pulse">Painting your masterpiece...</p>
+                </div>
+              )}
+
               {thread.map((tweet, index) => (
                 <motion.div
                   key={index}
@@ -323,8 +442,52 @@ export default function Home() {
                   </div>
 
                   <p className="text-sm leading-relaxed text-slate-200">
-                    {tweet}
+                    {typeof tweet === 'string' ? tweet : tweet.text}
                   </p>
+
+                  {(tweet.imageUrl || (index === 0 && generatedImageUrl)) && (
+                    <div className="relative group rounded-xl overflow-hidden border border-white/5 shadow-lg">
+                      <img src={tweet.imageUrl || (index === 0 && generatedImageUrl)} alt="" className="w-full aspect-video object-cover" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => {
+                            const newThread = [...thread];
+                            if (typeof newThread[index] === 'string') {
+                              newThread[index] = { text: newThread[index], imageUrl: null };
+                            }
+                            newThread[index].imageUrl = null;
+                            if (index === 0) setGeneratedImageUrl(null);
+                            setThread(newThread);
+                          }}
+                          className="p-2 rounded-full bg-rose-600 text-white shadow-lg"
+                        >
+                          <X size={14} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectionTarget(index);
+                            setIsGalleryOpen(true);
+                          }}
+                          className="p-2 rounded-full bg-violet-600 text-white shadow-lg"
+                        >
+                          <Repeat size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!(tweet.imageUrl || (index === 0 && generatedImageUrl)) && (
+                    <button
+                      onClick={() => {
+                        setSelectionTarget(index);
+                        setIsGalleryOpen(true);
+                      }}
+                      className="w-full py-4 rounded-xl border-2 border-dashed border-white/5 hover:border-violet-500/30 hover:bg-violet-500/5 text-slate-500 hover:text-violet-400 flex flex-col items-center gap-1 transition-all"
+                    >
+                      <ImageIcon size={20} />
+                      <span className="text-[10px] font-bold">ADD IMAGE</span>
+                    </button>
+                  )}
 
                   <div className="flex items-center justify-between pt-2 text-slate-500">
                     <button className="flex items-center gap-1.5 hover:text-violet-400 transition-colors">
@@ -370,6 +533,104 @@ export default function Home() {
         onSchedule={handleSchedule}
         isLoading={isScheduling}
       />
+
+      {/* Gallery Modal */}
+      <AnimatePresence>
+        {isGalleryOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsGalleryOpen(false)}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-4xl max-h-[80vh] glass-card rounded-3xl border border-white/10 overflow-hidden flex flex-col shadow-2xl"
+            >
+              <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-white">Image Gallery</h3>
+                  <p className="text-sm text-slate-400">Select a previously generated image</p>
+                </div>
+                <button
+                  onClick={() => setIsGalleryOpen(false)}
+                  className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {isFetchingGallery && galleryImages.length === 0 && (
+                  <div className="col-span-full py-20 flex flex-col items-center justify-center text-slate-500">
+                    <Loader2 className="w-8 h-8 animate-spin mb-4" />
+                    <p>Loading gallery...</p>
+                  </div>
+                )}
+
+                {!isFetchingGallery && galleryImages.length === 0 && (
+                  <div className="col-span-full py-20 flex flex-col items-center justify-center text-slate-500 text-center">
+                    <ImageIcon className="w-12 h-12 mb-4 opacity-20" />
+                    <p>Your generated images will appear here.</p>
+                  </div>
+                )}
+
+                {galleryImages.map((img) => (
+                  <button
+                    key={img.id}
+                    onClick={async () => {
+                      // Link to specific tweet if target is set
+                      if (typeof selectionTarget === 'number') {
+                        const newThread = [...thread];
+                        newThread[selectionTarget].imageUrl = img.url;
+                        setThread(newThread);
+
+                        // Also update global draft if exists
+                        if (currentThreadId) {
+                          try {
+                            await axios.post('/api/threads/update', {
+                              id: currentThreadId,
+                              content: JSON.stringify(newThread)
+                            });
+                          } catch (err) {
+                            console.error("Failed to sync tweet image to DB:", err);
+                          }
+                        }
+                      } else {
+                        setGeneratedImageUrl(img.url);
+                        // Link to current thread draft if exists
+                        if (currentThreadId) {
+                          try {
+                            await axios.post('/api/threads/update', {
+                              id: currentThreadId,
+                              imageUrl: img.url
+                            });
+                            console.log("Linked gallery image to current thread");
+                          } catch (err) {
+                            console.error("Failed to link gallery image:", err);
+                          }
+                        }
+                      }
+                      setIsGalleryOpen(false);
+                      setSelectionTarget(null);
+                    }}
+                    className="relative aspect-square rounded-2xl overflow-hidden group border border-white/5 hover:border-violet-500/50 transition-all active:scale-95"
+                  >
+                    <img src={img.url} alt={img.prompt || "Gallery Image"} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="text-xs font-bold text-white">Select</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

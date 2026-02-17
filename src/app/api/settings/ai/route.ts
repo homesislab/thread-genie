@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { Logger } from '@/lib/logger';
 
 export async function GET(request: Request) {
+    // ... (GET function remains same)
     try {
         const session = await getServerSession(authOptions);
 
@@ -33,7 +35,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { provider, apiKey, model } = await request.json();
+        const { provider, apiKey, model, imageModel } = await request.json();
 
         // Basic validation
         if (!provider || !apiKey) {
@@ -42,6 +44,9 @@ export async function POST(request: Request) {
 
         const userId = (session.user as any).id;
 
+        const defaultModel = provider === 'GEMINI' ? 'gemini-1.5-flash' : 'gpt-4o';
+        const defaultImageModel = provider === 'GEMINI' ? 'gemini-2.5-flash-image' : 'dall-e-3';
+
         const settings = await prisma.aISettings.upsert({
             where: {
                 userId: userId,
@@ -49,20 +54,28 @@ export async function POST(request: Request) {
             update: {
                 provider,
                 apiKey,
-                model: model || (provider === 'GEMINI' ? 'gemini-1.5-flash' : 'gpt-4o'),
+                model: model || defaultModel,
+                imageModel: imageModel || defaultImageModel,
             },
             create: {
                 userId: userId,
                 provider,
                 apiKey,
-                model: model || (provider === 'GEMINI' ? 'gemini-1.5-flash' : 'gpt-4o'),
+                model: model || defaultModel,
+                imageModel: imageModel || defaultImageModel,
             },
         });
 
+        await Logger.info(
+            `AI settings updated for provider: ${provider}`,
+            { provider, model: settings.model },
+            userId
+        );
+
         return NextResponse.json({ settings });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error saving AI settings:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ error: "Internal Server Error", details: error.message }, { status: 500 });
     }
 }

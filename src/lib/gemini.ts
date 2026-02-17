@@ -33,3 +33,24 @@ export async function getGeminiModel(userId?: string) {
         },
     });
 }
+export async function getImagenModel(userId?: string) {
+    let apiKey = defaultApiKey;
+    let modelName = "gemini-2.5-flash-image"; // Nano Banana Flash
+
+    if (userId) {
+        const settings = await prisma.aISettings.findUnique({
+            where: { userId },
+        });
+        if (settings && settings.provider === 'GEMINI' && settings.apiKey) {
+            apiKey = settings.apiKey;
+            modelName = (settings as any).imageModel || modelName;
+        }
+    }
+
+    if (!apiKey) {
+        throw new Error("Gemini API Key not found. Please configure it in settings.");
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    return genAI.getGenerativeModel({ model: modelName });
+}
