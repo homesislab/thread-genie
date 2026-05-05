@@ -35,11 +35,11 @@ export default function SettingsPage() {
             { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
         ],
         OPENAI: [
+            { id: 'gpt-5.5', name: 'GPT-5.5' },
+            { id: 'gpt-5.4', name: 'GPT-5.4' },
+            { id: 'gpt-5.4-mini', name: 'GPT-5.4-mini' },
             { id: 'gpt-4o', name: 'GPT-4o' },
-            { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
-            { id: 'o1', name: 'OpenAI o1' },
             { id: 'o3-mini', name: 'OpenAI o3-mini' },
-            { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' },
         ]
     };
 
@@ -50,6 +50,7 @@ export default function SettingsPage() {
             { id: 'gemini-2.0-flash-exp-image-generation', name: 'Gemini 2.0 Image (Exp)' },
         ],
         OPENAI: [
+            { id: 'gpt-image-2', name: 'GPT Image 2' },
             { id: 'dall-e-3', name: 'DALL-E 3 (HD)' },
             { id: 'dall-e-2', name: 'DALL-E 2 (Standard)' },
         ]
@@ -146,8 +147,8 @@ export default function SettingsPage() {
                                 type="button"
                                 onClick={() => {
                                     setProvider('OPENAI');
-                                    setModel('gpt-4o');
-                                    setImageModel('dall-e-3');
+                                    setModel('gpt-5.5');
+                                    setImageModel('gpt-image-2');
                                 }}
                                 className={`p-4 rounded-xl border transition-all text-left ${provider === 'OPENAI'
                                     ? 'bg-violet-500/20 border-violet-500 text-white'

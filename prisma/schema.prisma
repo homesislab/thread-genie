@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -37,19 +38,21 @@ model Session {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?
-  role          String    @default("USER")
-  accounts      Account[]
-  sessions      Session[]
-  threads       Thread[]
-  systemLogs    SystemLog[]
-  aiSettings    AISettings?
-  images        Image[]
+  id             String          @id @default(cuid())
+  name           String?
+  email          String?         @unique
+  emailVerified  DateTime?
+  image          String?
+  password       String?
+  role           String          @default("USER")
+  accounts       Account[]
+  sessions       Session[]
+  threads        Thread[]
+  systemLogs     SystemLog[]
+  aiSettings     AISettings?
+  images         Image[]
+  socialChannels SocialChannel[]
+  posts          Post[]
 }
 
 model Image {
@@ -107,4 +110,65 @@ model AISettings {
   model      String
   imageModel String?  @default("gemini-2.5-flash-image")
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
+// OMNICHANNEL PUBLISHER
+// ==========================================
+
+model SocialChannel {
+  id           String       @id @default(cuid())
+  userId       String
+  provider     String       // "twitter" | "facebook" | "youtube" | "instagram" | "tiktok" | "linkedin"
+  displayName  String?      // Nama akun/page/channel
+  avatarUrl    String?      @db.Text
+  channelId    String?      // Page ID / Channel ID / User ID di platform
+  accessToken  String?      @db.Text
+  refreshToken String?      @db.Text
+  expiresAt    DateTime?
+  metadata     Json?        // Data extra per platform (page token, scopes, dll)
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postResults  PostResult[]
+
+  @@unique([userId, provider, channelId])
+  @@index([userId])
+}
+
+model Post {
+  id           String       @id @default(cuid())
+  userId       String
+  title        String?                    // Wajib untuk YouTube
+  body         String?      @db.LongText  // Teks utama konten
+  mediaUrl     String?      @db.LongText  // URL video/gambar
+  mediaType    String?                    // "image" | "video" | "text"
+  platformMeta Json?                      // Setting per platform {youtube: {privacy, tags}, ...}
+  status       String       @default("DRAFT") // DRAFT|SCHEDULED|PUBLISHED|PARTIAL|FAILED
+  scheduledAt  DateTime?
+  publishedAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  results      PostResult[]
+
+  @@index([userId])
+}
+
+model PostResult {
+  id          String        @id @default(cuid())
+  postId      String
+  channelId   String
+  platform    String        // "twitter" | "facebook" | "youtube" | dll
+  status      String        // "SUCCESS" | "FAILED" | "PENDING"
+  externalId  String?       // ID di platform (tweet ID, video ID, post ID)
+  errorMsg    String?       @db.Text
+  publishedAt DateTime?
+  createdAt   DateTime      @default(now())
+  post        Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  channel     SocialChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([channelId])
 }

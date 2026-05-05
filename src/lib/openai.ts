@@ -5,7 +5,7 @@ const defaultApiKey = process.env.OPENAI_API_KEY;
 
 export async function getOpenAIClient(userId?: string) {
     let apiKey = defaultApiKey;
-    let modelName = "gpt-4o";
+    let modelName = "gpt-5.5";
 
     if (userId) {
         const settings = await prisma.aISettings.findUnique({

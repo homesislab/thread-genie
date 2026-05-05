@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getTwitterClient } from '@/lib/twitter';
+import { dispatch } from '@/lib/publishers';
 import { Logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -10,117 +10,141 @@ export async function GET(req: Request) {
     const key = searchParams.get('key');
 
     if (process.env.CRON_SECRET && key !== process.env.CRON_SECRET) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const processed = { threads: 0, posts: 0, errors: 0 };
+
+    // ============================================
+    // 1. Process scheduled Thread (legacy model)
+    // ============================================
     try {
-        const threadsToPost = await prisma.thread.findMany({
-            where: {
-                status: "SCHEDULED",
-                scheduledAt: {
-                    lte: new Date(),
-                },
+        const threads = await prisma.thread.findMany({
+            where: { status: 'SCHEDULED', scheduledAt: { lte: new Date() } },
+        });
+
+        for (const thread of threads) {
+            let accountIds: string[] = [];
+            try { accountIds = JSON.parse(thread.platforms || '[]'); } catch { /* skip */ }
+
+            const accounts = await prisma.account.findMany({ where: { id: { in: accountIds } } });
+            let hasError = false;
+            const platformStatuses: Record<string, string> = {};
+
+            for (const account of accounts) {
+                let content: any[] = [];
+                try { content = JSON.parse(thread.content as string); } catch { content = [{ text: thread.content }]; }
+
+                const result = await dispatch(account.provider, {
+                    id: account.id,
+                    provider: account.provider,
+                    accessToken: account.access_token,
+                    refreshToken: account.refresh_token,
+                }, {
+                    thread: content.map((t: any) => typeof t === 'string' ? { text: t } : t),
+                    mediaBase64: thread.imageUrl || undefined,
+                });
+
+                platformStatuses[account.id] = result.success ? 'POSTED' : `ERROR: ${result.error}`;
+                if (!result.success) hasError = true;
+
+                await Logger[result.success ? 'success' : 'error'](
+                    `Cron: ${result.success ? 'Posted' : 'Failed'} thread to ${account.provider}`,
+                    { threadId: thread.id, error: result.error },
+                    account.userId
+                );
+            }
+
+            await prisma.thread.update({
+                where: { id: thread.id },
+                data: { status: hasError ? 'PARTIAL' : 'POSTED', platforms: JSON.stringify(platformStatuses) },
+            });
+
+            processed.threads++;
+        }
+    } catch (err: any) {
+        console.error('Cron Thread Error:', err);
+        processed.errors++;
+    }
+
+    // ============================================
+    // 2. Process scheduled Post (new model)
+    // ============================================
+    try {
+        const posts = await prisma.post.findMany({
+            where: { status: 'SCHEDULED', scheduledAt: { lte: new Date() } },
+            include: {
+                results: { select: { channelId: true } }, // ambil channel yang sudah dipost
             },
         });
 
-        const results = [];
+        for (const post of posts) {
+            // Ambil channels yang belum dipost (dari PostResult)
+            const postedChannelIds = post.results.map(r => r.channelId);
 
-        for (const thread of threadsToPost) {
-            let accountIds: string[] = [];
-            try {
-                accountIds = JSON.parse(thread.platforms || '[]');
-            } catch (e) {
-                // Fallback if not JSON
-                accountIds = thread.platforms ? [thread.platforms] : [];
-            }
-            const platformStatuses: Record<string, string> = {};
-            let hasError = false;
+            // Cari channels dari PostResult yang statusnya PENDING, atau ambil semua via metadata
+            const pendingChannelIds: string[] = (post.platformMeta as any)?.channelIds || [];
+            const channelsToPost = pendingChannelIds.filter((id: string) => !postedChannelIds.includes(id));
 
-            if (accountIds.length === 0) {
-                console.warn(`No accounts selected for thread ${thread.id}`);
-                await prisma.thread.update({
-                    where: { id: thread.id },
-                    data: { status: "FAILED" },
-                });
+            if (!channelsToPost.length) {
+                await prisma.post.update({ where: { id: post.id }, data: { status: 'PUBLISHED', publishedAt: new Date() } });
                 continue;
             }
 
-            const accounts = await prisma.account.findMany({
-                where: { id: { in: accountIds } }
+            const channels = await prisma.socialChannel.findMany({
+                where: { id: { in: channelsToPost }, isActive: true },
             });
 
-            for (const accountId of accountIds) {
-                const account = accounts.find(a => a.id === accountId);
-                if (!account) {
-                    platformStatuses[accountId] = "ACCOUNT_NOT_FOUND";
-                    hasError = true;
-                    continue;
-                }
+            let hasError = false;
 
-                try {
-                    if (account.provider === 'twitter') {
-                        const client = await getTwitterClient(account.id);
+            for (const channel of channels) {
+                const result = await dispatch(channel.provider, channel, {
+                    title: post.title || undefined,
+                    text: post.body || undefined,
+                    mediaUrl: post.mediaUrl || undefined,
+                    mediaType: post.mediaType as any,
+                    platformMeta: post.platformMeta as any,
+                });
 
-                        // Use manual threading for consistency with post route and better control
-                        let lastTweetId = undefined;
+                await prisma.postResult.create({
+                    data: {
+                        postId: post.id,
+                        channelId: channel.id,
+                        platform: channel.provider,
+                        status: result.success ? 'SUCCESS' : 'FAILED',
+                        externalId: result.externalId || null,
+                        errorMsg: result.error || null,
+                        publishedAt: result.success ? new Date() : null,
+                    },
+                });
 
-                        let threadContent: string[] = [];
-                        try {
-                            threadContent = JSON.parse(thread.content as string);
-                        } catch (e) {
-                            threadContent = [thread.content as string]; // Fallback if not JSON
-                        }
+                if (!result.success) hasError = true;
 
-                        for (const tweetText of threadContent) {
-                            const params: any = { text: tweetText };
-                            if (lastTweetId) {
-                                params.reply = { in_reply_to_tweet_id: lastTweetId };
-                            }
-                            const postedTweet = await client.v2.tweet(params);
-                            lastTweetId = postedTweet.data.id;
-                        }
-
-                        platformStatuses[accountId] = "POSTED";
-                    } else if (account.provider === 'facebook') {
-                        // Placeholder for Meta implementation
-                        platformStatuses[accountId] = "META_NOT_IMPLEMENTED";
-                        hasError = true;
-                    }
-                } catch (err: any) {
-                    console.error(`Cron post failed for account ${accountId}:`, err);
-
-                    // Log detailed error for cron debugging
-                    await Logger.error(
-                        `Cron: Failed to post thread to ${account.provider}`,
-                        {
-                            error: err.message,
-                            twitterData: err.data,
-                            accountId: account.id,
-                            platform: account.provider
-                        },
-                        account.userId
-                    );
-
-                    platformStatuses[accountId] = `ERROR: ${err.message}`;
-                    hasError = true;
-                }
+                await Logger[result.success ? 'success' : 'error'](
+                    `Cron: ${result.success ? 'Published' : 'Failed'} post to ${channel.provider}`,
+                    { postId: post.id, error: result.error },
+                    post.userId
+                );
             }
 
-            // Update thread status
-            await prisma.thread.update({
-                where: { id: thread.id },
+            const allResults = await prisma.postResult.findMany({ where: { postId: post.id } });
+            const anySuccess = allResults.some(r => r.status === 'SUCCESS');
+            const allSuccess = allResults.every(r => r.status === 'SUCCESS');
+
+            await prisma.post.update({
+                where: { id: post.id },
                 data: {
-                    status: hasError ? "PARTIAL" : "POSTED",
-                    platforms: platformStatuses
+                    status: allSuccess ? 'PUBLISHED' : (anySuccess ? 'PARTIAL' : 'FAILED'),
+                    publishedAt: anySuccess ? new Date() : null,
                 },
             });
 
-            results.push({ id: thread.id, platformStatuses });
+            processed.posts++;
         }
-
-        return NextResponse.json({ processed: threadsToPost.length, results });
-    } catch (error: any) {
-        console.error('Cron Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (err: any) {
+        console.error('Cron Post Error:', err);
+        processed.errors++;
     }
+
+    return NextResponse.json({ ok: true, processed });
 }

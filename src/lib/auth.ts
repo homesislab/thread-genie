@@ -1,6 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import TwitterProvider from "next-auth/providers/twitter";
 import FacebookProvider from "next-auth/providers/facebook";
+import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -22,10 +23,21 @@ export const authOptions: NextAuthOptions = {
         FacebookProvider({
             clientId: process.env.FACEBOOK_CLIENT_ID || "",
             clientSecret: process.env.FACEBOOK_CLIENT_SECRET || "",
-            // Add Instagram scopes if needed
             authorization: {
                 params: {
-                    scope: 'email,public_profile,pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish'
+                    scope: 'email,public_profile,pages_manage_posts,pages_read_engagement,pages_show_list',
+                }
+            }
+        }),
+        GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID || "",
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+            authorization: {
+                params: {
+                    scope: "openid email profile https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube",
+                    prompt: "consent",
+                    access_type: "offline",
+                    response_type: "code"
                 }
             }
         }),

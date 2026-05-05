@@ -44,8 +44,8 @@ export async function POST(request: Request) {
 
         const userId = (session.user as any).id;
 
-        const defaultModel = provider === 'GEMINI' ? 'gemini-1.5-flash' : 'gpt-4o';
-        const defaultImageModel = provider === 'GEMINI' ? 'gemini-2.5-flash-image' : 'dall-e-3';
+        const defaultModel = provider === 'GEMINI' ? 'gemini-1.5-flash' : 'gpt-5.5';
+        const defaultImageModel = provider === 'GEMINI' ? 'gemini-2.5-flash-image' : 'gpt-image-2';
 
         const settings = await prisma.aISettings.upsert({
             where: {

@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getGeminiModel } from '@/lib/gemini';
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { Logger } from '@/lib/logger';
+import { prisma } from '@/lib/prisma';
+import { getGeminiModel } from '@/lib/gemini';
+import { getOpenAIClient } from '@/lib/openai';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,28 +34,50 @@ Example Output:
 }`;
 
         const session: any = await getServerSession(authOptions);
-        const userId = session?.user?.id; // Assuming session has user.id
+        const userId = session?.user?.id;
 
-        const model = await getGeminiModel(userId);
+        // Check user settings for AI Provider
+        let provider = 'GEMINI';
+        if (userId) {
+            const settings = await prisma.aISettings.findUnique({
+                where: { userId }
+            });
+            if (settings && settings.provider) {
+                provider = settings.provider;
+            }
+        }
 
-        const result = await model.generateContent({
-            contents: [
-                {
-                    role: "user",
-                    parts: [{ text: `${systemPrompt}\n\nUser Prompt: ${prompt}` }],
-                },
-            ],
-        });
+        let parsed = { thread: [] as string[] };
 
-        const response = result.response;
-        const text = response.text();
-        const parsed = JSON.parse(text || '{"thread": []}');
+        if (provider === 'OPENAI') {
+            const { client, model } = await getOpenAIClient(userId);
+            const completion = await client.chat.completions.create({
+                model: model,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: prompt }
+                ],
+                response_format: { type: "json_object" }
+            });
+            const text = completion.choices[0].message.content || '{"thread": []}';
+            parsed = JSON.parse(text);
+        } else {
+            const model = await getGeminiModel(userId);
+            const result = await model.generateContent({
+                contents: [
+                    {
+                        role: "user",
+                        parts: [{ text: `${systemPrompt}\n\nUser Prompt: ${prompt}` }],
+                    },
+                ],
+            });
+            const text = result.response.text();
+            parsed = JSON.parse(text || '{"thread": []}');
+        }
 
         if (userId && parsed.thread?.length > 0) {
             // Auto-save as DRAFT
             try {
-                const { prisma } = require('@/lib/prisma');
-                // Map strings to objects if they are strings, otherwise preserve
                 const threadContent = (parsed.thread || []).map((t: any) => {
                     if (typeof t === 'string') return { text: t, imageUrl: null };
                     return t;
@@ -72,7 +96,7 @@ Example Output:
             }
 
             await Logger.info(
-                `Thread generated and saved as draft`,
+                `Thread generated and saved as draft via ${provider}`,
                 { prompt, tone, length, threadCount: parsed.thread?.length || 0 },
                 userId
             );
@@ -80,7 +104,7 @@ Example Output:
 
         return NextResponse.json({ thread: parsed.thread || [] });
     } catch (error: any) {
-        console.error('Gemini Generation Error:', error);
+        console.error('AI Generation Error:', error);
         return NextResponse.json({ error: error.message || 'Failed to generate thread' }, { status: 500 });
     }
 }

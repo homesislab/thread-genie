@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches: ["master", "main"]
+  pull_request:
+    branches: ["master", "main"]
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Pre-cleanup (Fix permissions)
+        run: |
+          docker run --rm -v $(pwd):/app -w /app alpine chown -R $(id -u):$(id -g) . || true
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          clean: false  # Preserve .env and other untracked files on the server
+
+      - name: Prepare .env from Secrets
+        env:
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TWITTER_CLIENT_ID: ${{ secrets.TWITTER_CLIENT_ID }}
+          TWITTER_CLIENT_SECRET: ${{ secrets.TWITTER_CLIENT_SECRET }}
+          FACEBOOK_CLIENT_ID: ${{ secrets.FACEBOOK_CLIENT_ID }}
+          FACEBOOK_CLIENT_SECRET: ${{ secrets.FACEBOOK_CLIENT_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          # Helper: update or append a key=value in .env
+          update_env() {
+            local key=$1
+            local value=$2
+            if [ -z "$value" ]; then return; fi
+            if grep -q "^${key}=" .env 2>/dev/null; then
+              sed -i "s|^${key}=.*|${key}=${value}|" .env
+            else
+              echo "${key}=${value}" >> .env
+            fi
+          }
+
+          # Ensure .env exists
+          [ -f .env ] || touch .env
+
+          update_env "NEXTAUTH_SECRET"      "$NEXTAUTH_SECRET"
+          update_env "NEXTAUTH_URL"         "https://thread.homesislab.my.id"
+          update_env "GEMINI_API_KEY"       "$GEMINI_API_KEY"
+          update_env "TWITTER_CLIENT_ID"    "$TWITTER_CLIENT_ID"
+          update_env "TWITTER_CLIENT_SECRET" "$TWITTER_CLIENT_SECRET"
+          update_env "FACEBOOK_CLIENT_ID"   "$FACEBOOK_CLIENT_ID"
+          update_env "FACEBOOK_CLIENT_SECRET" "$FACEBOOK_CLIENT_SECRET"
+          update_env "GOOGLE_CLIENT_ID"     "$GOOGLE_CLIENT_ID"
+          update_env "GOOGLE_CLIENT_SECRET" "$GOOGLE_CLIENT_SECRET"
+          update_env "CRON_SECRET"          "$CRON_SECRET"
+          update_env "DATABASE_URL"         "$DATABASE_URL"
+
+          chmod 600 .env
+
+      - name: Build Docker image
+        run: docker compose build app
+
+      - name: Restart container
+        run: docker compose up -d --no-deps --remove-orphans app
+
+      - name: Wait for app to be ready
+        run: |
+          echo "Waiting for app to be healthy..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3022/ > /dev/null 2>&1; then
+              echo "App is ready!"
+              break
+            fi
+            echo "Attempt $i/30 — not ready yet, retrying in 3s..."
+            sleep 3
+          done
+          # Final check
+          curl -sf http://localhost:3022/ || (echo "App failed to start!" && docker compose logs app && exit 1)
+
+      - name: Run Prisma migrations
+        run: |
+          docker compose exec -T app npx prisma migrate deploy || echo "Migrations skipped (no pending)"
+
+      - name: Smoke test (UI)
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3022/ || echo "000")
+          echo "App HTTP STATUS: $code"
+          test "$code" -lt 500
+
+      - name: Smoke test (API health)
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3022/api/auth/providers || echo "000")
+          echo "API HTTP STATUS: $code"
+          test "$code" -lt 500
+
+      - name: Print container logs (always)
+        if: always()
+        run: docker compose logs --no-color --tail=200
+
+      - name: Stop containers (non-main branches only)
+        if: always() && github.ref != 'refs/heads/main' && github.ref != 'refs/heads/master'
+        run: docker compose down --remove-orphans

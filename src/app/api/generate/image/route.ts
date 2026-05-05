@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     }
 
     try {
-        const { prompt } = await req.json();
+        const { prompt, threadId } = await req.json();
 
         if (!prompt) {
             return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
@@ -65,6 +65,8 @@ export async function POST(req: Request) {
             }
 
             await Logger.success('AI image generated successfully (OpenAI)', { imageUrl }, userId);
+            
+            return NextResponse.json({ imageUrl });
         } else {
             // Default to Gemini/Imagen
             const model = await getImagenModel(userId);
@@ -113,8 +115,6 @@ export async function POST(req: Request) {
                     }
                 });
 
-                // Link to thread if threadId provided
-                const { threadId } = await req.json().catch(() => ({}));
                 if (threadId) {
                     await prisma.thread.update({
                         where: { id: threadId, userId },
@@ -130,7 +130,7 @@ export async function POST(req: Request) {
                 );
             }
 
-            await Logger.success('AI image generated successfully (Gemini)', { prompt, threadId: (await req.json().catch(() => ({}))).threadId }, userId);
+            await Logger.success('AI image generated successfully (Gemini)', { prompt, threadId }, userId);
             return NextResponse.json({ imageUrl: dataUri });
         }
     } catch (error: any) {
