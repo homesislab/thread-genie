@@ -70,12 +70,12 @@ export default function ChannelsPage() {
                 fetchChannels();
             } else {
                 // Belum login FB — arahkan ke OAuth dulu
-                await signIn('facebook', { callbackUrl: '/channels?connect=facebook' });
+                await signIn('facebook', { callbackUrl: '/accounts?connect=facebook' });
             }
         } catch (err: any) {
             const msg = err?.response?.data?.error || 'Failed to connect Facebook';
             if (msg.includes('not connected')) {
-                await signIn('facebook', { callbackUrl: '/channels?connect=facebook' });
+                await signIn('facebook', { callbackUrl: '/accounts?connect=facebook' });
             } else {
                 showToast(msg, 'error');
             }
@@ -92,12 +92,12 @@ export default function ChannelsPage() {
                 showToast(`✅ ${res.data.message}`);
                 fetchChannels();
             } else {
-                await signIn('google', { callbackUrl: '/channels?connect=youtube' });
+                await signIn('google', { callbackUrl: '/accounts?connect=youtube' });
             }
         } catch (err: any) {
             const msg = err?.response?.data?.error || 'Failed to connect YouTube';
             if (msg.includes('not connected')) {
-                await signIn('google', { callbackUrl: '/channels?connect=youtube' });
+                await signIn('google', { callbackUrl: '/accounts?connect=youtube' });
             } else {
                 showToast(msg, 'error');
             }
@@ -130,7 +130,7 @@ export default function ChannelsPage() {
                 if (res.data.success) {
                     showToast(`✅ ${res.data.message}`);
                     fetchChannels();
-                    window.history.replaceState({}, '', '/channels');
+                    window.history.replaceState({}, '', '/accounts');
                 }
             }).catch(() => {});
         } else if (connectParam === 'youtube' && session) {
@@ -138,7 +138,7 @@ export default function ChannelsPage() {
                 if (res.data.success) {
                     showToast(`✅ ${res.data.message}`);
                     fetchChannels();
-                    window.history.replaceState({}, '', '/channels');
+                    window.history.replaceState({}, '', '/accounts');
                 }
             }).catch(() => {});
         }
