@@ -1,4 +1,5 @@
 import type { Publisher, SocialChannelData, PublishPayload, PublishResult } from './types';
+import { Readable } from 'stream';
 
 /**
  * YouTube Publisher Adapter
@@ -41,7 +42,9 @@ export const YouTubePublisher: Publisher = {
             if (!videoResponse.ok) {
                 return { success: false, error: `Failed to fetch video from URL: ${payload.mediaUrl}` };
             }
-            const videoStream = videoResponse.body as any;
+            
+            // Convert Web ReadableStream to Node.js Readable stream since googleapis expects Node streams
+            const videoStream = Readable.fromWeb(videoResponse.body as any);
 
             const meta = payload.platformMeta?.youtube || {};
 
