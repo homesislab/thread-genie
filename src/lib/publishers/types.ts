@@ -40,7 +40,13 @@ export interface PublishPayload {
     mediaBase64?: string;  // Base64 image untuk Twitter
 
     // Metadata extra per platform (dari platformMeta JSON di Post)
-    platformMeta?: Record<string, any>;
+    platformMeta?: {
+        facebook?: { isReel?: boolean };
+        instagram?: { isReel?: boolean };
+        tiktok?: { privacyLevel?: string; disableComment?: boolean };
+        linkedin?: { visibility?: string };
+        [key: string]: any;
+    };
 }
 
 export interface PublishResult {

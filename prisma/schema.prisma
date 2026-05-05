@@ -53,6 +53,7 @@ model User {
   images         Image[]
   socialChannels SocialChannel[]
   posts          Post[]
+  clipAssets     ClipAsset[]
 }
 
 model Image {
@@ -152,8 +153,11 @@ model Post {
   updatedAt    DateTime     @updatedAt
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   results      PostResult[]
+  clipAssetId  String?
+  clipAsset    ClipAsset?   @relation(fields: [clipAssetId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+  @@index([clipAssetId])
 }
 
 model PostResult {
@@ -171,4 +175,29 @@ model PostResult {
 
   @@index([postId])
   @@index([channelId])
+}
+
+// ==========================================
+// CLIPPER INTEGRATION
+// ==========================================
+
+model ClipAsset {
+  id            String    @id @default(cuid())
+  userId        String
+  title         String    @db.VarChar(500)
+  videoUrl      String    @db.Text          // Accessible URL dari /public/uploads/ atau Clipper output
+  thumbnailUrl  String?   @db.Text
+  durationSec   Float?
+  fileSize      Int?                        // bytes
+  sourceProject String?                     // Nama project di Clipper
+  clipIndex     Int?                        // Index clip dalam project Clipper
+  status        String    @default("READY") // READY | SCHEDULED | POSTED
+  metadata      Json?                       // Extra data dari Clipper (tags, transcript, dll)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  posts         Post[]
+
+  @@index([userId])
+  @@index([status])
 }

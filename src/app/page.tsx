@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from 'react';
-import { Sparkles, Send, MessageSquare, Repeat, Heart, Share, Loader2, Calendar, Twitter, Facebook, CheckCircle2, Settings, ImageIcon, X, Grid, Video, Zap, Plus, Youtube } from 'lucide-react';
+import React, { useState, useEffect, Suspense, useCallback } from 'react';
+import { Sparkles, Send, MessageSquare, Repeat, Heart, Share, Loader2, Calendar, Twitter, Facebook, CheckCircle2, Settings, ImageIcon, X, Grid, Video, Zap, Plus, Youtube, BarChart3, Clapperboard, CalendarDays, TrendingUp, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { useSession, signIn } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import ScheduleModal from '@/components/ScheduleModal';
+import AnalyticsStats from '@/components/AnalyticsStats';
 
 const PLATFORM_ICONS: any = { twitter: Twitter, facebook: Facebook, youtube: Youtube };
 
@@ -133,16 +134,44 @@ function HomeContent() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="mb-8 fade-in-up">
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#7c3aed,#ec4899)' }}>
-            <Zap className="w-4 h-4 text-white" fill="white" />
+      <div className="mb-6 fade-in-up">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#7c3aed,#ec4899)' }}>
+              <Zap className="w-4 h-4 text-white" fill="white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Outfit,sans-serif' }}>
+                Thread<span className="text-gradient">Genie</span>
+              </h1>
+              <p className="text-xs text-slate-500">Omni-Channel Publisher</p>
+            </div>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Outfit,sans-serif' }}>
-            Create Your <span className="text-gradient">Thread</span>
-          </h1>
+          {/* Quick nav */}
+          <div className="flex items-center gap-2">
+            <Link href="/composer" className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all" style={{ background: 'linear-gradient(135deg,#7c3aed,#ec4899)' }}>
+              <Zap className="w-3.5 h-3.5" />New Post
+            </Link>
+            <Link href="/calendar" className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-slate-400 bg-white/5 hover:bg-white/10 border border-white/8 transition-all">
+              <CalendarDays className="w-3.5 h-3.5" />Calendar
+            </Link>
+            <Link href="/clip-library" className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-slate-400 bg-white/5 hover:bg-white/10 border border-white/8 transition-all">
+              <Clapperboard className="w-3.5 h-3.5" />Clips
+            </Link>
+          </div>
         </div>
-        <p className="text-sm text-slate-500 ml-11">Transform your ideas into viral content across all platforms</p>
+      </div>
+
+      {/* Analytics Stats */}
+      <AnalyticsStats />
+
+      {/* Thread Composer */}
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-1">
+          <h2 className="text-lg font-bold text-slate-200">🧵 Thread Composer</h2>
+          <span className="text-xs text-slate-600 border border-white/8 rounded-full px-2 py-0.5">AI powered</span>
+        </div>
+        <p className="text-sm text-slate-500">Transform your ideas into viral content across all platforms</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">

@@ -2,7 +2,9 @@ import type { Platform, Publisher, SocialChannelData, PublishPayload, PublishRes
 import { TwitterPublisher } from './twitter';
 import { FacebookPublisher } from './facebook';
 import { YouTubePublisher } from './youtube';
-import { InstagramPublisher, TikTokPublisher, LinkedInPublisher } from './stubs';
+import { InstagramPublisher } from './instagram';
+import { TikTokPublisher } from './tiktok';
+import { LinkedInPublisher } from './linkedin';
 
 /** Registry semua platform adapter */
 const PUBLISHERS: Record<Platform, Publisher> = {

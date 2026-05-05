@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import {
     LayoutDashboard,
-    Calendar,
+    CalendarDays,
     BarChart3,
     Settings,
     Shield,
@@ -15,7 +15,7 @@ import {
     Image as ImageIcon,
     Zap,
     BookOpen,
-    Users
+    Clapperboard,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -36,15 +36,16 @@ const Sidebar = () => {
             label: 'Workspace',
             items: [
                 { icon: LayoutDashboard, label: 'Dashboard', href: '/' },
-                { icon: Zap, label: 'Composer', href: '/composer' },
+                { icon: Zap, label: 'Compose', href: '/composer' },
                 { icon: ScrollText, label: 'Posts', href: '/posts' },
-                { icon: Calendar, label: 'Scheduled', href: '/scheduled' },
+                { icon: CalendarDays, label: 'Calendar', href: '/calendar' },
             ]
         },
         {
             label: 'Media',
             items: [
                 { icon: ImageIcon, label: 'Gallery', href: '/gallery' },
+                { icon: Clapperboard, label: 'Clip Library', href: '/clip-library' },
             ]
         },
         {
