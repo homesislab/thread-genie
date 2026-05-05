@@ -6,6 +6,8 @@ services:
     restart: always
     ports:
       - "3022:3000"
+    env_file:
+      - .env
     environment:
       - DATABASE_URL=mysql://thread_user:Rahasialah135@mariadb_server:3306/threaddb
       - NEXTAUTH_URL=https://thread.homesislab.my.id
