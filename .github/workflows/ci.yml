@@ -71,7 +71,7 @@ jobs:
         run: |
           echo "Waiting for app to be healthy..."
           for i in $(seq 1 30); do
-            if curl -sf http://localhost:3022/ > /dev/null 2>&1; then
+            if curl -sf https://thread.homesislab.my.id > /dev/null 2>&1; then
               echo "App is ready!"
               break
             fi
@@ -79,7 +79,7 @@ jobs:
             sleep 3
           done
           # Final check
-          curl -sf http://localhost:3022/ || (echo "App failed to start!" && docker compose logs app && exit 1)
+          curl -sf https://thread.homesislab.my.id || (echo "App failed to start!" && docker compose logs app && exit 1)
 
       - name: Run Prisma migrations
         run: |
@@ -87,13 +87,13 @@ jobs:
 
       - name: Smoke test (UI)
         run: |
-          code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3022/ || echo "000")
+          code=$(curl -s -o /dev/null -w "%{http_code}" https://thread.homesislab.my.id || echo "000")
           echo "App HTTP STATUS: $code"
           test "$code" -lt 500
 
       - name: Smoke test (API health)
         run: |
-          code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3022/api/auth/providers || echo "000")
+          code=$(curl -s -o /dev/null -w "%{http_code}" https://thread.homesislab.my.id/api/auth/providers || echo "000")
           echo "API HTTP STATUS: $code"
           test "$code" -lt 500
 
