@@ -17,7 +17,17 @@ export async function GET() {
             orderBy: { createdAt: 'desc' },
         });
 
-        return NextResponse.json({ images });
+        const clips = await prisma.clipAsset.findMany({
+            where: { userId: session.user.id, status: 'READY' },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        const media = [
+            ...images.map(img => ({ id: img.id, url: img.url, type: 'image', createdAt: img.createdAt })),
+            ...clips.map(clip => ({ id: clip.id, url: clip.videoUrl, type: 'video', createdAt: clip.createdAt, title: clip.title }))
+        ].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        return NextResponse.json({ images: media });
     } catch (error: any) {
         console.error('Gallery Fetch Error:', error);
         return NextResponse.json({ error: 'Failed to fetch gallery' }, { status: 500 });

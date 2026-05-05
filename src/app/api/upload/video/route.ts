@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { promises as fs } from 'fs';
+import { prisma } from '@/lib/prisma';
 import path from 'path';
 import { Logger } from '@/lib/logger';
 
@@ -45,6 +46,16 @@ export async function POST(req: Request) {
 
         const userSession = session as any;
         const userId = userSession.user.id;
+
+        // Save to ClipAsset so it shows up in Gallery
+        await prisma.clipAsset.create({
+            data: {
+                userId,
+                title: file.name || filename,
+                videoUrl: videoUrl,
+                status: "READY",
+            }
+        });
 
         await Logger.info(`Video uploaded manually`, { filename }, userId);
 

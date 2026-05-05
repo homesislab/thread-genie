@@ -22,6 +22,14 @@ export const YouTubePublisher: Publisher = {
             return { success: false, error: 'YouTube requires a video title.' };
         }
 
+        if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+            return { success: false, error: 'CRITICAL: GOOGLE_CLIENT_ID or SECRET is missing on the server. Please check your GitHub Secrets and redeploy.' };
+        }
+
+        if (!channel.refreshToken) {
+            console.warn('[YouTube Publisher] Warning: refresh_token is missing for this channel. Upload will fail if access_token is expired.');
+        }
+
         try {
             // Dynamic import agar tidak break jika googleapis belum diinstall
             const { google } = await import('googleapis');

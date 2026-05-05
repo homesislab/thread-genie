@@ -417,8 +417,8 @@ function HomeContent() {
               className="relative w-full max-w-3xl max-h-[80vh] glass rounded-3xl border border-white/10 overflow-hidden flex flex-col shadow-2xl">
               <div className="p-5 border-b border-white/5 flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-bold text-white">Image Gallery</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">Select a previously generated image</p>
+                  <h3 className="text-base font-bold text-white">Media Gallery</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Select a previously generated image or video</p>
                 </div>
                 <button onClick={() => setIsGalleryOpen(false)} className="p-2 rounded-xl hover:bg-white/8 text-slate-400 transition-all"><X className="w-4 h-4" /></button>
               </div>
@@ -434,14 +434,20 @@ function HomeContent() {
                   <button key={img.id} onClick={async () => {
                     if (typeof selectionTarget === 'number') {
                       const t = [...thread]; t[selectionTarget].imageUrl = img.url; setThread(t);
+                      if (selectionTarget === 0) setIsVideo(img.type === 'video'); // update video state if it's the first tweet
                       if (currentThreadId) await axios.post('/api/threads/update', { id: currentThreadId, content: JSON.stringify(t) }).catch(() => {});
                     } else {
                       setGeneratedImageUrl(img.url);
+                      setIsVideo(img.type === 'video');
                       if (currentThreadId) await axios.post('/api/threads/update', { id: currentThreadId, imageUrl: img.url }).catch(() => {});
                     }
                     setIsGalleryOpen(false); setSelectionTarget(null);
-                  }} className="relative aspect-square rounded-xl overflow-hidden group border border-white/5 hover:border-violet-500/40 transition-all active:scale-95">
-                    <img src={img.url} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                  }} className="relative aspect-square rounded-xl overflow-hidden group border border-white/5 hover:border-violet-500/40 transition-all active:scale-95 bg-black/50">
+                    {img.type === 'video' ? (
+                      <video src={img.url} className="w-full h-full object-cover transition-transform group-hover:scale-105" muted loop autoPlay playsInline />
+                    ) : (
+                      <img src={img.url} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                    )}
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <span className="text-xs font-bold text-white bg-violet-600/80 px-3 py-1 rounded-full backdrop-blur">Select</span>
                     </div>
