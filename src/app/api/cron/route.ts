@@ -98,10 +98,16 @@ export async function GET(req: Request) {
             let hasError = false;
 
             for (const channel of channels) {
+                let absoluteMediaUrl = post.mediaUrl;
+                if (absoluteMediaUrl && absoluteMediaUrl.startsWith('/')) {
+                    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+                    absoluteMediaUrl = `${baseUrl}${absoluteMediaUrl}`;
+                }
+
                 const result = await dispatch(channel.provider, channel, {
                     title: post.title || undefined,
                     text: post.body || undefined,
-                    mediaUrl: post.mediaUrl || undefined,
+                    mediaUrl: absoluteMediaUrl || undefined,
                     mediaType: post.mediaType as any,
                     platformMeta: post.platformMeta as any,
                 });

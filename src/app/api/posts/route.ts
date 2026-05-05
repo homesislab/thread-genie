@@ -57,11 +57,17 @@ export async function POST(req: Request) {
     let hasError = false;
 
     for (const channel of channels) {
+        let absoluteMediaUrl = mediaUrl;
+        if (absoluteMediaUrl && absoluteMediaUrl.startsWith('/')) {
+            const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+            absoluteMediaUrl = `${baseUrl}${absoluteMediaUrl}`;
+        }
+
         const payload = {
             title,
             text: content,
             thread,
-            mediaUrl,
+            mediaUrl: absoluteMediaUrl,
             mediaType,
             platformMeta,
         };
